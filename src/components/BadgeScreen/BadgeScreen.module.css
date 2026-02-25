@@ -10,6 +10,7 @@
   z-index: 20;
   cursor: pointer;
   transition: opacity 0.4s;
+  animation: fadeUp 0.3s ease;
 }
 
 .screen.hidden {
