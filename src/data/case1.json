@@ -1,0 +1,172 @@
+{
+  "id": "case1",
+  "label": "macOS Slow — Resource Optimization",
+  "useCase": "resource_optimization",
+  "resolution": "self_service",
+  "user": "Alex",
+  "greeting": "Good Afternoon",
+  "device": "MacBook Pro 32GB / 1TB",
+
+  "snapshot": {
+    "agent_id": "mbp-alex-c13",
+    "time": "2024-11-20T14:00:00Z",
+    "os": "macOS",
+    "os_version": "15.3",
+    "memory_size_gb": 32,
+    "cpu_count": 10,
+    "memory_count": 2,
+    "uptime_days": 108,
+    "p90_memory_utilization": 91.7,
+    "avg_memory_utilization": 82.3,
+    "max_memory_usage": 31.8,
+    "p90_processor_time": 78.4,
+    "avg_processor_time": 42.1,
+    "max_cpu_usage": 98.5,
+    "avg_cpu_temp": 72.1,
+    "p90_cpu_temp": 81.3,
+    "avg_boot_time": 46,
+    "p90_boot_time": 52,
+    "total_app_crash": 14,
+    "p10_battery_health": 88.4,
+    "avg_battery_health": 91.2,
+    "avg_battery_temperature": 31.2,
+    "p90_battery_temperature": 34.7,
+    "avg_battery_discharge": 8.1,
+    "p90_battery_discharge": 11.3,
+    "driver_vendor": "Apple",
+    "driver": "AppleIntelMEF",
+    "driver_version": "7.2.3.4000",
+    "driver_date": "2024-09-15",
+    "wifi_mac_add": "a4:c3:f0:xx:xx:xx",
+    "performance_status": "degraded",
+    "device_status": "active"
+  },
+
+  "deviceHealth": {
+    "signals": [
+      { "icon": "⚠️", "label": "RAM Pressure", "value": "91.7%" },
+      { "icon": "⚠️", "label": "Uptime", "value": "108 days" },
+      { "icon": "✅", "label": "Battery", "value": "91.2%" }
+    ]
+  },
+
+  "thinkingSteps": [
+    "Retrieving device snapshot from 30 minutes ago…",
+    "Analyzing usage patterns for the past 3 months…",
+    "Checking your Device EOL status…"
+  ],
+
+  "diagnosticRows": [
+    {
+      "label": "uptime_days = 108  (threshold: > 60 days)",
+      "result": "⚠️ Memory leak likely — processes accumulate leaked memory",
+      "cls": "warn"
+    },
+    {
+      "label": "p90_memory_utilization = 91.7%  (threshold: > 85%)",
+      "result": "⚠️ RAM overloaded",
+      "cls": "warn"
+    },
+    {
+      "label": "max_cpu_usage = 98.5%  with 24 active apps / 47 Chrome tabs",
+      "result": "⚠️ High CPU load — too many open apps",
+      "cls": "warn"
+    },
+    {
+      "label": "avg_boot_time = 46s · p90_boot_time = 52s  (threshold: < 30s)",
+      "result": "⚠️ Slow boot — disk I/O bottleneck",
+      "cls": "warn"
+    },
+    {
+      "label": "os_version",
+      "result": "✅ Up-to-date (macOS 15.3)",
+      "cls": "ok"
+    },
+    {
+      "label": "avg_battery_health = 91.2%",
+      "result": "✅ Battery healthy",
+      "cls": "ok"
+    }
+  ],
+
+  "rootCauses": [
+    {
+      "icon": "⚠️",
+      "label": "Device Uptime — Memory Leak",
+      "detail": "108 days without restart",
+      "confidence": 75,
+      "type": "warn",
+      "slownessType": "memory-leak",
+      "slownessLabel": "Memory Leak",
+      "evidence": "108-day uptime causes processes to accumulate leaked memory. uptime_days of 108 is 7× above the recommended cycle (< 14 days). Normal restart clears leaked allocations and typically drops RAM utilization from 91% to < 50%. Closing the lid does NOT restart — it suspends.",
+      "metrics": ["Last restart: Oct 4, 2024", "Recommended cycle: < 14 days", "total_app_crash (30d): 14"],
+      "benchmark": "Device uptime is longer than 94% of MacBook Pros in your org"
+    },
+    {
+      "icon": "⚠️",
+      "label": "Full Disk Space",
+      "detail": "p90_boot_time = 52s — disk I/O stalling",
+      "confidence": 60,
+      "type": "warn",
+      "slownessType": "disk-bottleneck",
+      "slownessLabel": "Disk Bottleneck",
+      "evidence": "macOS requires ≥ 10% free disk space for virtual memory paging and temp writes. Slow boot time (p90 = 52s vs. < 30s threshold) and high max_memory_usage confirm disk-based swap is constrained, amplifying the memory leak effect.",
+      "metrics": ["p90_boot_time: 52s", "Threshold: < 30s", "avg_boot_time: 46s"],
+      "benchmark": "Boot time is slower than 89% of 1 TB MacBook Pros in your org"
+    },
+    {
+      "icon": "⚠️",
+      "label": "High Memory Pressure",
+      "detail": "avg_memory_utilization = 82.3% over 30 days",
+      "confidence": 45,
+      "type": "warn",
+      "slownessType": "high-utilization",
+      "slownessLabel": "High Utilization",
+      "evidence": "Elevated but secondary — this is a symptom of the uptime-driven leak, not an independent cause. CPU remains partially active (avg_processor_time = 42.1%), distinguishing from pure swap thrashing. Closing Chrome tabs provides temporary relief.",
+      "metrics": ["avg_memory_utilization: 82.3%", "p90_memory_utilization: 91.7%", "total_app_crash: 14"],
+      "benchmark": "RAM pressure is higher than 78% of 32 GB MacBook Pros in your org"
+    }
+  ],
+
+  "benchmarkSummary": {
+    "model": "MacBook Pro 32GB",
+    "metrics": [
+      { "label": "RAM Usage",   "userValue": 91.7, "p75Value": 67, "unit": "%", "status": "above" },
+      { "label": "CPU Usage",   "userValue": 42.1, "p75Value": 44, "unit": "%", "status": "within" },
+      { "label": "Boot Time",   "userValue": 52,   "p75Value": 28, "unit": "s", "status": "above" }
+    ],
+    "interpretation": "Your laptop's RAM and boot time are significantly higher than similar MacBook Pros. The 108-day uptime is causing memory to accumulate, which forces the disk into a bottleneck. A restart resolves this immediately."
+  },
+
+  "cues": [
+    "✅ macOS 15.3 — up-to-date",
+    "✅ Battery healthy (avg 91.2%)"
+  ],
+
+  "chips": [
+    { "id": "restart", "label": "Restart my laptop", "primary": true },
+    { "id": "ram",     "label": "Optimize RAM" },
+    { "id": "disk",    "label": "Free up disk space" }
+  ],
+
+  "responses": {
+    "restart": {
+      "icon": "🔄",
+      "title": "Restart My MacBook",
+      "body": "<p><strong>Note:</strong> Closing the lid does <em>not</em> restart your laptop — it only puts it to sleep.</p><ol><li>Click the <strong>Apple menu 🍎</strong> in the top-left corner.</li><li>Select <strong>Restart…</strong></li><li>Save any open files when prompted.</li><li>Click <strong>Restart</strong> in the confirmation dialog.</li><li>Allow the laptop to fully shut down and start back up.</li></ol><p>Your laptop will reconnect to network resources automatically on startup.</p>",
+      "source": "Source: macOS Device Management Policy"
+    },
+    "ram": {
+      "icon": "💾",
+      "title": "Optimize RAM",
+      "body": "<p>Every open tab and app consumes memory, even when idle.</p><ol><li>Click <strong>Go › Utilities</strong> at the top of your screen.</li><li>Open <strong>Activity Monitor</strong> → click the <strong>Memory</strong> tab.</li><li>Sort by memory usage. Identify apps you're not actively using.</li><li>Double-click an app → click <strong>Quit</strong>.</li></ol>",
+      "source": "Source: macOS Optimization KB · support.apple.com/en-us/102586"
+    },
+    "disk": {
+      "icon": "🗂️",
+      "title": "Free Up Disk Space",
+      "body": "<p>macOS needs at least 10% free space for virtual memory and temp files.</p><ul><li><a href='https://my.it.a2z.com/articles/setup/everyday-it/free-up-laptop-space' target='_blank'>Find and remove files taking up space →</a></li><li><a href='https://my.it.a2z.com/articles/setup/everyday-it/back-up-your-data' target='_blank'>Back up your data to a network folder →</a></li></ul>",
+      "source": "Source: IT Storage Management Guide"
+    }
+  }
+}

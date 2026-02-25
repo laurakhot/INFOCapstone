@@ -1,0 +1,155 @@
+{
+  "id": "case2",
+  "label": "Hardware Failure — EOL Replacement",
+  "useCase": "hardware_failure",
+  "resolution": "it_support_desk",
+  "user": "Sam",
+  "greeting": "Good Afternoon",
+  "device": "HP EliteBook 840 G5 — 16GB / 512GB",
+
+  "snapshot": {
+    "agent_id": "win-hp-sam-c14",
+    "time": "2024-11-20T09:30:00Z",
+    "os": "Windows",
+    "os_version": "11 Pro",
+    "memory_size_gb": 16,
+    "cpu_count": 4,
+    "memory_count": 2,
+    "uptime_days": 0.8,
+    "p90_memory_utilization": 95.1,
+    "avg_memory_utilization": 88.4,
+    "max_memory_usage": 15.8,
+    "p90_processor_time": 52.3,
+    "avg_processor_time": 27.1,
+    "max_cpu_usage": 89.2,
+    "avg_cpu_temp": 87.4,
+    "p90_cpu_temp": 94.1,
+    "avg_boot_time": 71,
+    "p90_boot_time": 81,
+    "total_app_crash": 18,
+    "p10_battery_health": 65.1,
+    "avg_battery_health": 71.3,
+    "avg_battery_temperature": 38.4,
+    "p90_battery_temperature": 42.7,
+    "avg_battery_discharge": 14.2,
+    "p90_battery_discharge": 18.9,
+    "driver_vendor": "Intel",
+    "driver": "Intel HD Graphics",
+    "driver_version": "26.20.100.7584",
+    "driver_date": "2021-03-12",
+    "wifi_mac_add": "b8:ca:3a:xx:xx:xx",
+    "performance_status": "critical",
+    "device_status": "eol_eligible"
+  },
+
+  "deviceHealth": {
+    "signals": [
+      { "icon": "⚠️", "label": "CPU Temp", "value": "87.4°C" },
+      { "icon": "⚠️", "label": "App Crashes", "value": "18 in 30d" },
+      { "icon": "⚠️", "label": "Boot Time", "value": "81s" }
+    ]
+  },
+
+  "thinkingSteps": [
+    "Retrieving device snapshot from 4 hours ago…",
+    "Analyzing usage patterns for the past 3 months…",
+    "Checking your EOL status and hardware failure history…"
+  ],
+
+  "diagnosticRows": [
+    {
+      "label": "device_status = eol_eligible  (device age: 4.3 years, policy: 4 years)",
+      "result": "🥳 Qualified for EOL replacement",
+      "cls": "eol"
+    },
+    {
+      "label": "avg_cpu_temp = 87.4 °C · p90_cpu_temp = 94.1 °C  (threshold: < 80 °C)",
+      "result": "⚠️ CPU overheating — hardware stress indicator",
+      "cls": "warn"
+    },
+    {
+      "label": "total_app_crash = 18  (threshold: < 5 in 30 days)",
+      "result": "⚠️ High crash rate — hardware degradation signal",
+      "cls": "warn"
+    },
+    {
+      "label": "p90_boot_time = 81s · avg_boot_time = 71s  (threshold: < 30s)",
+      "result": "⚠️ Very slow boot — storage component degrading",
+      "cls": "warn"
+    },
+    {
+      "label": "avg_memory_utilization = 88.4%  ·  avg_processor_time = 27.1% (paradoxically low)",
+      "result": "⚠️ CPU idle while RAM maxed — active swap thrashing",
+      "cls": "warn"
+    },
+    {
+      "label": "os_version · driver_version",
+      "result": "✅ Windows 11 Pro up-to-date · Drivers current",
+      "cls": "ok"
+    }
+  ],
+
+  "rootCauses": [
+    {
+      "icon": "🥳",
+      "label": "EOL Device — Replacement Eligible",
+      "detail": "4.3 years old · 3 hardware failures in 90 days",
+      "confidence": 95,
+      "type": "eol",
+      "slownessType": "hardware-degradation",
+      "slownessLabel": "Hardware Degradation",
+      "evidence": "device_status = eol_eligible confirmed in IT asset database (policy: 4 years). avg_cpu_temp = 87.4 °C and total_app_crash = 18 (past 30d) are direct hardware degradation signals. p90_boot_time of 81s indicates storage component failure. A restart will not resolve hardware-level degradation.",
+      "metrics": ["Device age: 4.3 years", "Policy threshold: 4 years", "total_app_crash (30d): 18"],
+      "benchmark": "CPU temperature is higher than 97% of HP EliteBook G5 devices in your org"
+    },
+    {
+      "icon": "⚠️",
+      "label": "CPU Overheating — Hardware Stress",
+      "detail": "avg_cpu_temp = 87.4 °C  (safe limit: < 80 °C)",
+      "confidence": 80,
+      "type": "warn",
+      "slownessType": "hardware-degradation",
+      "slownessLabel": "Hardware Degradation",
+      "evidence": "avg_cpu_temp (87.4 °C) and p90_cpu_temp (94.1 °C) significantly exceed the safe operating threshold. Sustained overheating accelerates component degradation and directly predicts app crashes and unexpected shutdowns. This metric is not currently surfaced to ITSE — detecting it here adds proactive value.",
+      "metrics": ["avg_cpu_temp: 87.4 °C", "p90_cpu_temp: 94.1 °C", "Safe limit: < 80 °C"],
+      "benchmark": "CPU temperature is higher than 97% of HP EliteBook G5 devices in your org"
+    }
+  ],
+
+  "benchmarkSummary": {
+    "model": "HP EliteBook 840 G5",
+    "metrics": [
+      { "label": "CPU Temp",   "userValue": 87.4, "p75Value": 68,  "unit": "°C", "status": "above" },
+      { "label": "App Crashes","userValue": 18,   "p75Value": 3,   "unit": "",   "status": "above" },
+      { "label": "Boot Time",  "userValue": 81,   "p75Value": 32,  "unit": "s",  "status": "above" }
+    ],
+    "interpretation": "This device is running significantly hotter and crashing more often than similar HP EliteBook G5s. These are hardware degradation signals consistent with a device past its expected lifespan."
+  },
+
+  "cues": [
+    "✅ Windows 11 Pro — up-to-date",
+    "✅ Drivers current"
+  ],
+
+  "chips": [],
+
+  "directEscalationChips": [
+    { "id": "inperson", "label": "🏢 Visit IT Support Office (same-day replacement)", "primary": true },
+    { "id": "ticket",   "label": "🎫 Submit a SIM ticket for replacement" }
+  ],
+
+  "responses": {
+    "inperson": {
+      "icon": "🏢",
+      "title": "Visit IT Support Office",
+      "body": "<p>Your device is EOL-qualified. Bring your current laptop for a same-day replacement.</p><ul><li>📍 <strong>Building 3, Floor 2</strong> — IT Support Office</li><li>🕐 <strong>Monday–Friday, 8:00 AM – 6:00 PM</strong></li><li>🪪 Bring your employee badge</li><li>💾 Your data will be migrated to the new device</li></ul><p>No appointment needed. Most EOL replacements are processed same-day.</p>",
+      "source": "Source: EOL Device Replacement Policy · IT Equipment Database"
+    },
+    "ticket": {
+      "icon": "🎫",
+      "title": "Submit a SIM Ticket",
+      "body": "<p>Your device is already flagged as EOL-qualified — your request will be pre-approved automatically.</p><ul><li><a href='#' onclick='return false;'>Submit SIM ticket: Hardware › Device Replacement →</a></li><li>⏱️ <strong>Processing:</strong> 2–3 business days</li><li>📧 Confirmation email sent automatically</li><li>💾 IT team will contact you for data migration</li></ul>",
+      "source": "Source: EOL Device Replacement Policy · SIM Ticketing System"
+    }
+  }
+}

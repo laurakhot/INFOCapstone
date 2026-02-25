@@ -1,0 +1,189 @@
+{
+  "id": "case3",
+  "label": "Hardware Insufficiency — Upgrade Required",
+  "useCase": "hardware_insufficiency",
+  "resolution": "hardware_upgrade",
+  "user": "Amy",
+  "greeting": "Good Afternoon",
+  "device": "HP EliteBook 840 G8 — 16GB / 512GB",
+
+  "snapshot": {
+    "agent_id": "win-hp-amy-c10",
+    "time": "2024-11-20T11:00:00Z",
+    "os": "Windows",
+    "os_version": "11 Pro",
+    "memory_size_gb": 16,
+    "cpu_count": 8,
+    "memory_count": 2,
+    "uptime_days": 0.5,
+    "p90_memory_utilization": 96.2,
+    "avg_memory_utilization": 88.1,
+    "max_memory_usage": 15.9,
+    "p90_processor_time": 38.2,
+    "avg_processor_time": 27.4,
+    "max_cpu_usage": 72.1,
+    "avg_cpu_temp": 79.3,
+    "p90_cpu_temp": 87.2,
+    "avg_boot_time": 59,
+    "p90_boot_time": 68,
+    "total_app_crash": 24,
+    "p10_battery_health": 86.2,
+    "avg_battery_health": 89.4,
+    "avg_battery_temperature": 33.1,
+    "p90_battery_temperature": 36.8,
+    "avg_battery_discharge": 9.7,
+    "p90_battery_discharge": 13.2,
+    "driver_vendor": "Intel",
+    "driver": "Intel Iris Xe Graphics",
+    "driver_version": "31.0.101.4887",
+    "driver_date": "2024-07-22",
+    "wifi_mac_add": "c8:b4:22:xx:xx:xx",
+    "performance_status": "critical",
+    "device_status": "active"
+  },
+
+  "deviceHealth": {
+    "signals": [
+      { "icon": "⚠️", "label": "RAM Usage", "value": "96.2%" },
+      { "icon": "⚠️", "label": "App Crashes", "value": "24 in 30d" },
+      { "icon": "✅", "label": "Battery", "value": "89.4%" }
+    ]
+  },
+
+  "thinkingSteps": [
+    "Retrieving device snapshot from 30 minutes ago…",
+    "Analyzing usage patterns for the past 3 months…",
+    "Comparing your usage against similar HP EliteBook 840 G8 devices…",
+    "Checking restart history and RAM recovery patterns…"
+  ],
+
+  "diagnosticRows": [
+    {
+      "label": "p90_memory_utilization = 96.2%  (threshold: > 85%, sustained 27 / 30 days)",
+      "result": "⚠️ RAM consistently maxed — not a one-time spike",
+      "cls": "warn"
+    },
+    {
+      "label": "avg_processor_time = 27.4%  while  p90_memory_utilization = 96.2%",
+      "result": "⚠️ CPU idle while RAM maxed — active swap thrashing",
+      "cls": "warn"
+    },
+    {
+      "label": "restart events: 8 in 30 days · RAM climbs back to 90%+ within 3–5 days each time",
+      "result": "⚠️ Pattern: restarts provide temporary relief but RAM creeps back",
+      "cls": "warn"
+    },
+    {
+      "label": "memory_size_gb = 16 · Engineering role typical demand: 28–30 GB",
+      "result": "⚠️ Hardware spec insufficient for role",
+      "cls": "warn"
+    },
+    {
+      "label": "p90_boot_time = 68s  (threshold: < 30s)",
+      "result": "⚠️ Slow boot — swap activity causing storage bottleneck",
+      "cls": "warn"
+    },
+    {
+      "label": "os_version · avg_battery_health",
+      "result": "✅ Windows 11 Pro up-to-date · Battery healthy (89.4%)",
+      "cls": "ok"
+    }
+  ],
+
+  "rootCauses": [
+    {
+      "icon": "⚠️",
+      "label": "Hardware Capacity Mismatch",
+      "detail": "16 GB RAM is insufficient for an Engineering role",
+      "confidence": 85,
+      "type": "warn",
+      "slownessType": "capacity-mismatch",
+      "slownessLabel": "Capacity Mismatch",
+      "evidence": "Engineering role typically demands 28–30 GB RAM. With memory_size_gb = 16, the OS continuously pages to disk. avg_processor_time = 27.4% while p90_memory_utilization = 96.2% — the CPU is idle waiting on disk swaps. Jordan restarts 8 times per month but RAM climbs back within days — this confirms the issue is structural, not behavioral. Only a hardware upgrade resolves it.",
+      "metrics": ["Sustained above 85%: 27 of 30 days", "memory_size_gb: 16 GB", "Role requirement: 32 GB"],
+      "benchmark": "RAM pressure is higher than 93% of HP EliteBook 840 G8 devices in your org"
+    },
+    {
+      "icon": "⚠️",
+      "label": "Memory Thrashing — Swap Storm",
+      "detail": "avg_processor_time = 27.4%  with  p90_memory_utilization = 96.2%",
+      "confidence": 75,
+      "type": "warn",
+      "slownessType": "thrashing",
+      "slownessLabel": "Memory Thrashing",
+      "evidence": "In normal operation, CPU and memory utilization rise together. Here avg_processor_time (27.4%) is paradoxically low while RAM is maxed — the processor is stalled waiting for disk paging. This swap storm pattern recurs after every restart, confirming the root cause is hardware insufficiency, not usage behavior.",
+      "metrics": ["avg_processor_time: 27.4% (low)", "p90_memory_utilization: 96.2%", "total_app_crash: 24"],
+      "benchmark": "CPU-to-memory divergence is higher than 91% of 16 GB laptops in your org"
+    }
+  ],
+
+  "benchmarkSummary": {
+    "model": "HP EliteBook 840 G8",
+    "metrics": [
+      { "label": "RAM Usage",   "userValue": 96.2, "p75Value": 68, "unit": "%", "status": "above" },
+      { "label": "CPU Usage",   "userValue": 27.4, "p75Value": 51, "unit": "%", "status": "within" },
+      { "label": "Boot Time",   "userValue": 68,   "p75Value": 31, "unit": "s", "status": "above" }
+    ],
+    "interpretation": "Jordan's laptop consistently uses more RAM than 93% of similar HP EliteBook 840 G8 devices. The pattern of frequent restarts with RAM climbing back each time indicates the 16 GB spec is structurally insufficient for this Engineering role — not a fixable usage habit."
+  },
+
+  "cues": [
+    "✅ Windows 11 Pro — up-to-date",
+    "✅ Battery healthy (avg 89.4%)"
+  ],
+
+  "chips": [],
+
+  "directEscalationChips": [
+    { "id": "upgrade", "label": "🖥️ Request 32GB / 1TB team laptop (pre-approved)", "primary": true },
+    { "id": "inperson","label": "🏢 Visit IT Support Office" }
+  ],
+
+  "responses": {
+    "upgrade": {
+      "icon": "🖥️",
+      "title": "Request a Team-Purchased Laptop",
+      "body": "<p>Based on your usage patterns and Engineering role, a 32 GB / 1 TB laptop has been pre-approved for your team budget.</p><ul><li><a href='#' onclick='return false;'>Submit hardware upgrade request via IT Portal →</a></li></ul><p><strong>Expected processing:</strong> 5–7 business days. You'll receive a confirmation email once approved.</p>",
+      "source": "Source: IT Equipment Policy · Team Budget Database · Job Role Access Database"
+    },
+    "inperson": {
+      "icon": "🏢",
+      "title": "Visit IT Support Office",
+      "body": "<p>Bring your current laptop for an in-person assessment and same-day replacement if stock is available.</p><ul><li>📍 <strong>Building 3, Floor 2</strong> — IT Support Office</li><li>🕐 <strong>Monday–Friday, 8:00 AM – 6:00 PM</strong></li><li>🪪 Bring your employee badge</li></ul>",
+      "source": "Source: IT Equipment Policy"
+    }
+  },
+
+  "timeSeries": [
+    { "date": "2024-10-22", "ram_pct": 78, "cpu_pct": 31, "restart": false },
+    { "date": "2024-10-23", "ram_pct": 46, "cpu_pct": 29, "restart": true  },
+    { "date": "2024-10-24", "ram_pct": 62, "cpu_pct": 28, "restart": false },
+    { "date": "2024-10-25", "ram_pct": 71, "cpu_pct": 27, "restart": false },
+    { "date": "2024-10-26", "ram_pct": 77, "cpu_pct": 26, "restart": false },
+    { "date": "2024-10-27", "ram_pct": 81, "cpu_pct": 25, "restart": false },
+    { "date": "2024-10-28", "ram_pct": 83, "cpu_pct": 24, "restart": false },
+    { "date": "2024-10-29", "ram_pct": 44, "cpu_pct": 28, "restart": true  },
+    { "date": "2024-10-30", "ram_pct": 61, "cpu_pct": 27, "restart": false },
+    { "date": "2024-10-31", "ram_pct": 72, "cpu_pct": 26, "restart": false },
+    { "date": "2024-11-01", "ram_pct": 78, "cpu_pct": 25, "restart": false },
+    { "date": "2024-11-02", "ram_pct": 83, "cpu_pct": 24, "restart": false },
+    { "date": "2024-11-03", "ram_pct": 87, "cpu_pct": 23, "restart": false },
+    { "date": "2024-11-04", "ram_pct": 46, "cpu_pct": 27, "restart": true  },
+    { "date": "2024-11-05", "ram_pct": 64, "cpu_pct": 26, "restart": false },
+    { "date": "2024-11-06", "ram_pct": 74, "cpu_pct": 25, "restart": false },
+    { "date": "2024-11-07", "ram_pct": 80, "cpu_pct": 24, "restart": false },
+    { "date": "2024-11-08", "ram_pct": 86, "cpu_pct": 23, "restart": false },
+    { "date": "2024-11-09", "ram_pct": 89, "cpu_pct": 22, "restart": false },
+    { "date": "2024-11-10", "ram_pct": 47, "cpu_pct": 26, "restart": true  },
+    { "date": "2024-11-11", "ram_pct": 63, "cpu_pct": 25, "restart": false },
+    { "date": "2024-11-12", "ram_pct": 73, "cpu_pct": 24, "restart": false },
+    { "date": "2024-11-13", "ram_pct": 81, "cpu_pct": 23, "restart": false },
+    { "date": "2024-11-14", "ram_pct": 87, "cpu_pct": 22, "restart": false },
+    { "date": "2024-11-15", "ram_pct": 91, "cpu_pct": 21, "restart": false },
+    { "date": "2024-11-16", "ram_pct": 49, "cpu_pct": 25, "restart": true  },
+    { "date": "2024-11-17", "ram_pct": 65, "cpu_pct": 24, "restart": false },
+    { "date": "2024-11-18", "ram_pct": 76, "cpu_pct": 23, "restart": false },
+    { "date": "2024-11-19", "ram_pct": 86, "cpu_pct": 22, "restart": false },
+    { "date": "2024-11-20", "ram_pct": 93, "cpu_pct": 21, "restart": false }
+  ]
+}
