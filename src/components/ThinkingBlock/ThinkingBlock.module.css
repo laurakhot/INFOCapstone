@@ -1,0 +1,63 @@
+.block {
+  background: #FAFAFA;
+  border: 1px solid var(--t3);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  animation: fadeUp 0.3s ease;
+  max-width: 84%;
+  align-self: flex-start;
+  transition: opacity 0.45s ease;
+}
+
+.block.fading {
+  opacity: 0;
+}
+
+.title {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--t2);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.step.visible {
+  opacity: 1;
+}
+
+.step.done {
+  color: var(--t1);
+}
+
+.spinner {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--t3);
+  border-top-color: var(--pk2);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.check {
+  width: 11px;
+  height: 11px;
+  color: #34C759;
+  flex-shrink: 0;
+  font-size: 11px;
+}

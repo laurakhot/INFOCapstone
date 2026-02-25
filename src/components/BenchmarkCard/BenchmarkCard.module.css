@@ -1,0 +1,61 @@
+.card {
+  background: #FAFAFA;
+  border: 1px solid var(--t3);
+  border-radius: var(--radius-md);
+  padding: 11px 13px;
+  animation: fadeUp 0.3s ease;
+  width: 100%;
+}
+
+.heading {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--t2);
+  margin-bottom: 8px;
+}
+
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 9px;
+}
+
+.metricRow {
+  display: grid;
+  grid-template-columns: 80px 50px 1fr;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.metricLabel {
+  color: var(--t1);
+  font-weight: 500;
+}
+
+.metricValue {
+  color: var(--t1);
+  font-weight: 700;
+  text-align: right;
+}
+
+.metricDiff {
+  font-size: 10.5px;
+}
+
+.metricDiff.above {
+  color: #D97706;
+}
+
+.metricDiff.within {
+  color: var(--ok-tx);
+}
+
+.interpretation {
+  font-size: 11px;
+  color: var(--t2);
+  line-height: 1.5;
+  padding-top: 8px;
+  border-top: 1px solid var(--t3);
+}
