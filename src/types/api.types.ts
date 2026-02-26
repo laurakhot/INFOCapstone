@@ -37,31 +37,22 @@ export interface DeviceSnapshot {
   device_status: 'active' | 'eol_eligible';
 }
 
-// ─── API request / response ───────────────────────────────────────────────────
+// ─── Lambda response ─────────────────────────────────────────────────────────
+// Shape returned by the AWS Lambda / API Gateway endpoint.
 
-export interface UploadSnapshotRequest {
-  snapshot: DeviceSnapshot;
-}
-
-export interface UploadSnapshotResponse {
-  prediction_id: string;
-}
-
-export type PredictionStatus = 'pending' | 'running' | 'completed' | 'failed';
-
-export interface PredictionResponse {
-  prediction_id: string;
-  status: PredictionStatus;
-  root_cause?: string;
-  confidence_score?: number;
-  slowness_type?: string;
-  evidence?: string;
+export interface LambdaResponse {
+  prediction: {
+    answer: string;
+    score: number;
+  };
 }
 
 // ─── Unified prediction result (same shape for demo + real API) ───────────────
 
 export interface PredictionResult {
   rootCauses: import('@/types/chat.types').RootCause[];
+  /** Full raw Lambda response — only populated in non-demo mode. */
+  rawResponse?: LambdaResponse;
 }
 
 // ─── Error ────────────────────────────────────────────────────────────────────

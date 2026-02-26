@@ -4,9 +4,13 @@ import styles from './RootCauseCard.module.css';
 
 interface Props {
   caseData: CaseData;
+  apiDebug?: {
+    answer: string;
+    score: number;
+  };
 }
 
-export function RootCauseCard({ caseData }: Props) {
+export function RootCauseCard({ caseData, apiDebug }: Props) {
   const cardRef = useRef<HTMLDivElement>(null);
 
   // Animate confidence bars after mount
@@ -23,6 +27,17 @@ export function RootCauseCard({ caseData }: Props) {
 
   return (
     <div className={styles.block} ref={cardRef}>
+      {apiDebug && (
+        <div className={styles.debugBox}>
+          <div className={styles.debugTitle}>🛰 API Gateway Response</div>
+          <div className={styles.debugGrid}>
+            <span className={styles.debugKey}>answer</span>
+            <span className={styles.debugVal}>{apiDebug.answer}</span>
+            <span className={styles.debugKey}>score</span>
+            <span className={styles.debugVal}>{apiDebug.score}</span>
+          </div>
+        </div>
+      )}
       <div className={styles.title}>Root cause analysis — ranked by confidence</div>
 
       <div className={styles.list}>

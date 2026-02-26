@@ -15,6 +15,8 @@ import {
   buildEscalationMessage,
   buildTimeSeriesMessage,
 } from '@/services/chatService';
+import { runPrediction } from '@/services/predictionService';
+import type { DeviceSnapshot } from '@/types/api.types';
 import { escapeHtml } from '@/utils/formatters';
 import { validateDeviceSnapshotJson } from '@/utils/validators';
 
@@ -159,7 +161,15 @@ export function useChatFlow(caseData: CaseData) {
     setDiagnosticState(null);
 
     // --- Emit results ---
-    dispatch({ type: 'ADD_MESSAGE', message: buildRootCauseMessage(caseData) });
+    // In non-demo mode, call the real API gateway and attach the raw response for debug display.
+    let apiDebug: Parameters<typeof buildRootCauseMessage>[1];
+    try {
+      const result = await runPrediction(caseData.snapshot as unknown as DeviceSnapshot, caseData);
+      apiDebug = result.rawResponse?.prediction;
+    } catch {
+      // Swallow — UI still renders from caseData mock even if API fails
+    }
+    dispatch({ type: 'ADD_MESSAGE', message: buildRootCauseMessage(caseData, apiDebug) });
 
     await delay(500);
     if (cancelRef.current) return;

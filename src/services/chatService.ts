@@ -41,8 +41,11 @@ export function buildChipsMessage(chips: Chip[]): ChipsMessage {
   return { id: newId(), type: 'chips', chips, used: false };
 }
 
-export function buildRootCauseMessage(caseData: CaseData): RootCauseMessage {
-  return { id: newId(), type: 'root-cause', caseData };
+export function buildRootCauseMessage(
+  caseData: CaseData,
+  apiDebug?: RootCauseMessage['apiDebug']
+): RootCauseMessage {
+  return { id: newId(), type: 'root-cause', caseData, apiDebug };
 }
 
 export function buildResolutionMessage(resolution: Resolution): ResolutionMessage {

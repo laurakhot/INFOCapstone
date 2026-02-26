@@ -130,6 +130,11 @@ export interface RootCauseMessage {
   id: string;
   type: 'root-cause';
   caseData: CaseData;
+  /** Raw Lambda response — only set when VITE_DEMO_MODE=false, for testing. */
+  apiDebug?: {
+    answer: string;
+    score: number;
+  };
 }
 
 export interface ResolutionMessage {

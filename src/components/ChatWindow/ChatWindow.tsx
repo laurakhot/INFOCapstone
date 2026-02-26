@@ -121,7 +121,7 @@ function renderMessage(
     case 'root-cause':
       return (
         <div key={msg.id} className="root-cause-group">
-          <RootCauseCard caseData={msg.caseData} />
+          <RootCauseCard caseData={msg.caseData} apiDebug={msg.apiDebug} />
           <BenchmarkCard summary={msg.caseData.benchmarkSummary} />
         </div>
       );
