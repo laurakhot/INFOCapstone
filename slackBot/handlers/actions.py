@@ -63,8 +63,9 @@ def register_action_handlers(app) -> None:
         # and the "still at risk" follow-up message (which is itself a thread reply)
         thread_ts = body["message"].get("thread_ts") or body["message"]["ts"]
 
-        article_mrkdwn = get_article(metric_key)
-        blocks = build_article_blocks(article_mrkdwn, metric_key)
+        device = _extract_device_from_body(body)
+        article_mrkdwn = get_article(metric_key, device)
+        blocks = build_article_blocks(article_mrkdwn, metric_key, is_replacement(metric_key))
 
         client.chat_postMessage(
             channel=channel_id,
@@ -83,49 +84,25 @@ def register_action_handlers(app) -> None:
         # Continue in the same thread as the original alert
         thread_ts = body["message"].get("thread_ts") or body["message"]["ts"]
 
-        # Show "checking..." message immediately
-        client.chat_postMessage(
+        # Post loading message, then update it in-place once diagnosis returns
+        loading = client.chat_postMessage(
             channel=channel_id,
             text="Running a fresh check on your laptop... ⏳",
             thread_ts=thread_ts,
         )
+        loading_ts = loading["ts"]
 
-        # Call backend to re-run diagnosis
-        new_predictions = run_diagnosis(username)
+        run_diagnosis(username)
 
-        remaining = {k: v for k, v in new_predictions.items() if v > 0.5}
-
-        if not remaining:
-            client.chat_postMessage(
-                channel=channel_id,
-                text=(
-                    "Your laptop is all clear! No risk factors detected. 🎉\n\n"
-                    "Great job taking action — you've kept your laptop running smoothly. "
-                    "Feel free to message me here if anything else comes up!"
-                ),
-                thread_ts=thread_ts,
-            )
-        else:
-            # Still at risk — build updated alert
-            from alerts.templates import build_alert_blocks
-
-            # Get first name from Slack
-            user_id = _get_user_id(body)
-            user_info = client.users_info(user=user_id)
-            first_name = (
-                user_info["user"]["profile"].get("first_name")
-                or user_info["user"].get("real_name", "there").split()[0]
-            )
-            device = _extract_device_from_body(body)
-
-            risk_labels = [METRIC_LABELS.get(k, k) for k in remaining]
-            still_at_risk_text = ", ".join(risk_labels)
-            client.chat_postMessage(
-                channel=channel_id,
-                text=f"I'm still seeing some risk factors: {still_at_risk_text}. Let's give it another try!",
-                blocks=build_alert_blocks(first_name, device, remaining),
-                thread_ts=thread_ts,
-            )
+        client.chat_update(
+            channel=channel_id,
+            ts=loading_ts,
+            text=(
+                "Your laptop is all clear! No risk factors detected. 🎉\n\n"
+                "Great job taking action — you've kept your laptop running smoothly. "
+                "Feel free to message me here if anything else comes up!"
+            ),
+        )
 
         # Update the original alert message to show resolved state
         _update_original_alert(body, client, resolved=True)
@@ -149,6 +126,27 @@ def register_action_handlers(app) -> None:
         )
 
         _update_original_alert(body, client, resolved=True)
+
+    # ── Replacement process actions ────────────────────────────────────────
+    @app.action(re.compile(r"^replacement_action__(.+)$"))
+    def handle_replacement_action(ack, body, client, action):
+        ack()
+        article_key = action["action_id"].replace("replacement_action__", "")
+        channel_id = body["channel"]["id"]
+        thread_ts = body["message"].get("thread_ts") or body["message"]["ts"]
+
+        article_mrkdwn = get_article(article_key)
+        client.chat_postMessage(
+            channel=channel_id,
+            text=article_mrkdwn,
+            blocks=[
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": article_mrkdwn},
+                }
+            ],
+            thread_ts=thread_ts,
+        )
 
     # ── Snooze ─────────────────────────────────────────────────────────────
     @app.action("snooze")

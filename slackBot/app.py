@@ -22,7 +22,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from handlers.actions import register_action_handlers
 from handlers.events import register_event_handlers
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 logging.basicConfig(
     level=logging.INFO,

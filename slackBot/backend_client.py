@@ -33,9 +33,7 @@ def run_diagnosis(username: str) -> dict:
     # Remove this block and uncomment the real call below when the backend
     # exposes a /diagnose endpoint.
     if not backend_url or backend_url == "http://localhost:8000":
-        # Stub: simulate remaining risks after user fixed memory (for Flow 3 testing)
-        # Revert to `return {}` to simulate all-clear
-        return {"battery_cycle": 0.90, "avg_boot_time": 0.65}
+        return {}
     # ─────────────────────────────────────────────────────────────────────
 
     # ── Real backend call (uncomment when ready) ──────────────────────────

@@ -18,6 +18,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 from alerts.templates import build_alert_blocks, METRIC_LABELS
+from rag.articles import is_replacement
 
 load_dotenv()
 
@@ -85,7 +86,8 @@ def send_alert(username: str, device: str, predictions: dict) -> None:
     channel_id = dm_resp["channel"]["id"]
 
     # Build Block Kit blocks
-    blocks = build_alert_blocks(first_name, device, predictions)
+    has_replacement = any(is_replacement(k) for k in predictions if predictions[k] > 0.5)
+    blocks = build_alert_blocks(first_name, device, predictions, has_replacement=has_replacement)
     if not blocks:
         print(f"[send_alert] No risk factors above 50% threshold for {username} — skipping.")
         return

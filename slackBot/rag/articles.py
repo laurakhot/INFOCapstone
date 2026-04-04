@@ -1,27 +1,94 @@
 """
 RAG article loader.
 
-Articles are stored as .md files in rag/articles/.
-File names must exactly match the metric key (e.g. avg_memory_utilization.md).
+Routing is driven by rag/escalation_logic.md — edit that file to change which
+article each metric maps to, and whether it requires IT replacement or not.
 
-Add your own support / KB articles to that folder — no code changes needed.
+Articles live in:
+  rag/articles/{article}.md                        — shared (platform=shared)
+  rag/articles/mac/{article}_mac.md                — Mac-specific
+  rag/articles/windows/{article}_windows.md        — Windows/HP-specific
+
+Platform is inferred from the device name passed to get_article().
 """
 
 import re
 from pathlib import Path
+from typing import Optional
 
 ARTICLES_DIR = Path(__file__).parent / "articles"
-
-# Metrics that require hardware replacement (user cannot self-fix)
-REPLACEMENT_METRICS = {"cpu_count", "battery_cycle"}
+_ESCALATION_FILE = Path(__file__).parent / "escalation_logic.md"
 
 
-def get_article(metric_key: str) -> str:
+def _load_escalation_table() -> tuple[dict, Optional[dict]]:
+    """
+    Parse rag/escalation_logic.md and return:
+      - table: dict of {metric_key: {"article": str, "type": str, "platform": str}}
+      - wildcard: fallback entry for unspecified metrics, or None
+    """
+    table: dict = {}
+    wildcard: Optional[dict] = None
+
+    for line in _ESCALATION_FILE.read_text(encoding="utf-8").splitlines():
+        # Match 4-column table rows: | key | article | type | platform |
+        m = re.match(
+            r"^\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|", line
+        )
+        if not m:
+            continue
+        key, article, kind, platform = m.group(1), m.group(2), m.group(3), m.group(4)
+        # Skip header and separator rows
+        if key in ("metric_key", "---", "-", "|-"):
+            continue
+        entry = {"article": article, "type": kind, "platform": platform}
+        if key == "*":
+            wildcard = entry
+        else:
+            table[key] = entry
+
+    return table, wildcard
+
+
+# Load once at module import time
+_TABLE, _WILDCARD = _load_escalation_table()
+
+
+def _get_routing_entry(metric_key: str) -> dict:
+    """Return the routing entry for metric_key, falling back to the wildcard."""
+    if metric_key in _TABLE:
+        return _TABLE[metric_key]
+    if _WILDCARD is not None:
+        return _WILDCARD
+    return {"article": "{metric_key}", "type": "self-service", "platform": "shared"}
+
+
+def _detect_platform(device: str) -> str:
+    """Infer platform from device name. Defaults to mac."""
+    d = device.lower()
+    if "hp" in d or "windows" in d:
+        return "windows"
+    return "mac"
+
+
+def get_article(metric_key: str, device: str = "") -> str:
     """
     Load the KB article for a given metric key and return it as Slack mrkdwn.
+    Pass device name so platform-specific articles (mac vs windows) are resolved.
     Returns a fallback string if no article file is found.
     """
-    path = ARTICLES_DIR / f"{metric_key}.md"
+    entry = _get_routing_entry(metric_key)
+    article_name = entry["article"]
+    platform_flag = entry.get("platform", "shared")
+
+    if article_name == "{metric_key}":
+        article_name = metric_key
+
+    if platform_flag == "shared":
+        path = ARTICLES_DIR / f"{article_name}.md"
+    else:
+        plat = _detect_platform(device)
+        path = ARTICLES_DIR / plat / f"{metric_key}.md"
+
     if not path.exists():
         return (
             f"*No self-help article found for this issue yet.*\n\n"
@@ -33,7 +100,7 @@ def get_article(metric_key: str) -> str:
 
 def is_replacement(metric_key: str) -> bool:
     """Return True if this root cause requires hardware replacement."""
-    return metric_key in REPLACEMENT_METRICS
+    return _get_routing_entry(metric_key).get("type") == "replacement"
 
 
 def _md_to_mrkdwn(text: str) -> str:
@@ -45,7 +112,7 @@ def _md_to_mrkdwn(text: str) -> str:
     - **bold**               →  *bold*
     - __bold__               →  *bold*
     - *italic* / _italic_    →  _italic_
-    - Numbered and bullet lists are kept as-is (Slack renders them)
+    - - list items           →  • list items
     - Horizontal rules (---) are removed
     """
     lines = text.splitlines()
@@ -63,13 +130,15 @@ def _md_to_mrkdwn(text: str) -> str:
             output.append("")
             continue
 
-        # Bold: **text** or __text__
+        # Unordered list items: - item → • item
+        line = re.sub(r"^(\s*)-\s+", r"\g<1>• ", line)
+
+        # Italic first: *text* (single markers only — lookahead/behind excludes **bold**)
+        line = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"_\1_", line)
+
+        # Bold: **text** or __text__ (runs after italic so *bold* isn't re-matched)
         line = re.sub(r"\*\*(.+?)\*\*", r"*\1*", line)
         line = re.sub(r"__(.+?)__", r"*\1*", line)
-
-        # Italic: *text* or _text_ (only single markers, not already bold)
-        # Use negative lookbehind/ahead to avoid touching already-converted *bold*
-        line = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"_\1_", line)
 
         output.append(line)
 

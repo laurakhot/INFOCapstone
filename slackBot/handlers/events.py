@@ -7,7 +7,7 @@ Events handled:
 """
 
 import home
-from rag.articles import get_article, REPLACEMENT_METRICS
+from rag.articles import get_article
 from alerts.templates import METRIC_LABELS
 
 

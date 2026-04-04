@@ -2,23 +2,32 @@
 Block Kit message builders for laptop health alerts.
 """
 
-# Maps metric keys to human-friendly display labels
+# Maps metric keys to human-friendly display labels (used in text/summaries)
 METRIC_LABELS = {
-    "avg_memory_utilization": "Memory Usage",
-    "avg_boot_time": "Startup Speed",
-    "max_memory_pressure": "System Performance",
+    "max_cpu_usage": "Max CPU Usage",
+    "avg_memory_utilization": "Average Memory Utilization",
     "cpu_count": "Processing Capacity",
-    "battery_cycle": "Battery Health",
+    "memory_size_gb": "Memory Capacity",
+    "p90_boot_time": "Worst Boot Time",
+    "uptime_days": "System Uptime",
 }
 
-# Metrics that require hardware replacement (user cannot self-fix)
-REPLACEMENT_METRICS = {"cpu_count", "battery_cycle"}
+# Actionable button labels shown on the root cause buttons
+METRIC_BUTTON_LABELS = {
+    "max_cpu_usage": "Optimize CPU Usage",
+    "avg_memory_utilization": "Optimize Memory",
+    "cpu_count": "Protect my Data",
+    "memory_size_gb": "Protect my Data",
+    "p90_boot_time": "Speed Up Boot Time",
+    "uptime_days": "Restart my Laptop",
+}
 
 
 def build_alert_blocks(
     first_name: str,
     device: str,
     predictions: dict,
+    has_replacement: bool = False,
 ) -> list:
     """
     Build Block Kit blocks for the initial alert DM.
@@ -36,24 +45,17 @@ def build_alert_blocks(
     if not risks:
         return []
 
-    # Build the bulleted risk list text
-    risk_lines = []
-    for metric_key, confidence in risks:
-        label = METRIC_LABELS.get(metric_key, metric_key)
-        pct = int(confidence * 100)
-        risk_lines.append(f"• *{label}*    {pct}% likely contributing")
-    risk_text = "\n".join(risk_lines)
-
     blocks = [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
                 "text": (
+                    f"Hey {first_name} 👋 Your laptop is showing signs of hardware wear "
+                    f"that could lead to unexpected data loss."
+                    if has_replacement else
                     f"Hey {first_name} 👋 Our system detected some risk factors that may "
-                    f"cause your laptop to crash.\n\n"
-                    f"Here's what we found on *{device}*:\n\n"
-                    f"{risk_text}"
+                    f"cause your laptop to crash."
                 ),
             },
         },
@@ -61,28 +63,63 @@ def build_alert_blocks(
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "I can help you with these! Which one would you like to tackle first?",
+                "text": f"Here's what we found on your *{device}*:",
             },
         },
-        # Root cause buttons (one per risk)
+        # aesthetic — card-style risk list; primary root cause gets 🔴, secondary gets 🟡
+        *[
+            {
+                "type": "section",
+                "fields": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"{'🔴' if i == 0 else '🟡'} *{METRIC_LABELS.get(k, k)}*",
+                    },
+                    {
+                        "type": "mrkdwn",
+                        "text": f"{int(v * 100)}% likely contributing",
+                    },
+                ],
+            }
+            for i, (k, v) in enumerate(risks)
+        ],
+        {"type": "divider"},
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    "Let me help you protect your data before it's too late."
+                    if has_replacement else
+                    "Do you want me to walk you through how to prevent it?"
+                ),
+            },
+        },
         {
             "type": "actions",
             "block_id": "root_cause_actions",
             "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": METRIC_LABELS.get(k, k)},
-                    "action_id": f"root_cause__{k}",
-                    "value": k,
-                }
-                for k, _ in risks
-            ],
-        },
-        # Snooze + opt-out buttons
-        {
-            "type": "actions",
-            "block_id": "alert_management_actions",
-            "elements": [
+                # Replacement: fixed process actions (not metric-mapped)
+                *([
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Backup my Data"},
+                        "action_id": "replacement_action__data_backup",
+                    },
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": "Request Laptop Replacement"},
+                        "action_id": "replacement_action__replacement",
+                    },
+                ] if has_replacement else [
+                    {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k))},
+                        "action_id": f"root_cause__{k}",
+                        "value": k,
+                    }
+                    for k, _ in risks
+                ]),
                 {
                     "type": "button",
                     "text": {"type": "plain_text", "text": "Remind me later"},
@@ -100,12 +137,11 @@ def build_alert_blocks(
     return blocks
 
 
-def build_article_blocks(article_mrkdwn: str, metric_key: str) -> list:
+def build_article_blocks(article_mrkdwn: str, metric_key: str, is_replacement: bool = False) -> list:
     """
     Build Block Kit blocks to display a KB article with a resolution button.
+    is_replacement should be passed by the caller (from rag.articles.is_replacement()).
     """
-    is_replacement = metric_key in REPLACEMENT_METRICS
-
     if is_replacement:
         button_text = "✅ Got it, I'll back up my data"
         action_id = f"done_replacement__{metric_key}"
@@ -225,6 +261,44 @@ def build_opt_out_feedback_blocks() -> list:
                     "text": {"type": "plain_text", "text": "Skip"},
                     "action_id": "opt_out_reason__skip",
                 },
+            ],
+        },
+    ]
+
+
+def build_still_at_risk_blocks(remaining: dict) -> list:
+    """
+    Compact follow-up shown after re-diagnosis when risk factors remain.
+    No introductory text — just the updated action buttons.
+    """
+    risks = sorted(
+        [(k, v) for k, v in remaining.items() if v > 0.5],
+        key=lambda x: x[1],
+        reverse=True,
+    )[:3]
+
+    if not risks:
+        return []
+
+    return [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "I'm still seeing some risk factors. Which would you like to tackle next?",
+            },
+        },
+        {
+            "type": "actions",
+            "block_id": "root_cause_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k))},
+                    "action_id": f"root_cause__{k}",
+                    "value": k,
+                }
+                for k, _ in risks
             ],
         },
     ]
