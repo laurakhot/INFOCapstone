@@ -53,12 +53,23 @@ def output_fn(prediction, accept):
 # If omitted, SageMaker passes raw bytes to predict_fn.
 # -------------------------------------------------------
 def input_fn(request_body, content_type):
-    """Deserialize the request body into a numpy array."""
+    """
+    Accepts either:
+    - A file reference: {"bucket": "...", "file_key": "telemetry/file.csv"}
+    - Raw instances:    {"instances": [[1,2,3], [4,5,6]]}
+    """
     if content_type == "application/json":
         data = json.loads(request_body)
-        # Accepts either {"instances": [[1,2,3], [4,5,6]]}
-        # or just [[1,2,3], [4,5,6]]
-        if isinstance(data, dict) and "instances" in data:
+
+        # S3 file reference — fetch and parse the file
+        if "bucket" in data and "file_key" in data:
+            s3 = boto3.client("s3")
+            obj = s3.get_object(Bucket=data["bucket"], Key=data["file_key"])
+            df = pd.read_csv(io.BytesIO(obj["Body"].read()))
+            return df.values  # convert to numpy array for the model
+
+        # Raw instances — use as before
+        if "instances" in data:
             return np.array(data["instances"])
-        return np.array(data)
-    raise ValueError(f"Unsupported content type: {content_type}. Use application/json.")
+
+    raise ValueError(f"Unsupported content type: {content_type}")
