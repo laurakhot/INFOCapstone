@@ -1,15 +1,11 @@
 """
 RAG article loader.
 
-Routing is driven by rag/escalation_logic.md — edit that file to change which
-article each metric maps to, and whether it requires IT replacement or not.
+Routing is driven by rag/escalation_logic.md — edit that file to change metric
+types and canvas URLs.
 
-Articles live in:
-  rag/articles/{article}.md                        — shared (platform=shared)
-  rag/articles/mac/{article}_mac.md                — Mac-specific
-  rag/articles/windows/{article}_windows.md        — Windows/HP-specific
-
-Platform is inferred from the device name passed to get_article().
+Articles live in rag/articles/{platform}_{metric_key}.md where platform is
+inferred from the device name (mac or windows).
 """
 
 import re
@@ -20,52 +16,39 @@ ARTICLES_DIR = Path(__file__).parent / "articles"
 _ESCALATION_FILE = Path(__file__).parent / "escalation_logic.md"
 
 
-def _load_escalation_table() -> tuple[dict, Optional[dict]]:
+def _load_escalation_table() -> dict:
     """
-    Parse rag/escalation_logic.md and return:
-      - table: dict of {metric_key: {"article": str, "type": str, "platform": str}}
-      - wildcard: fallback entry for unspecified metrics, or None
+    Parse rag/escalation_logic.md and return a dict of:
+      {metric_key: {"type": str, "canvas_url": Optional[str]}}
     """
     table: dict = {}
-    wildcard: Optional[dict] = None
 
     for line in _ESCALATION_FILE.read_text(encoding="utf-8").splitlines():
-        # Match 4-column table rows: | key | article | type | platform |
+        # Match 3-column table rows: | metric_key | type | canvas_url |
         m = re.match(
-            r"^\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|", line
+            r"^\|\s*(\S+)\s*\|\s*(\S+)\s*\|\s*(\S+)\s*\|", line
         )
         if not m:
             continue
-        key, article, kind, platform = m.group(1), m.group(2), m.group(3), m.group(4)
-        # Skip header and separator rows
+        key, kind, canvas_url = m.group(1), m.group(2), m.group(3)
         if key in ("metric_key", "---", "-", "|-"):
             continue
-        entry = {"article": article, "type": kind, "platform": platform}
-        if key == "*":
-            wildcard = entry
-        else:
-            table[key] = entry
+        table[key] = {
+            "type": kind,
+            "canvas_url": None if canvas_url == "-" else canvas_url,
+        }
 
-    return table, wildcard
+    return table
 
 
 # Load once at module import time
-_TABLE, _WILDCARD = _load_escalation_table()
-
-
-def _get_routing_entry(metric_key: str) -> dict:
-    """Return the routing entry for metric_key, falling back to the wildcard."""
-    if metric_key in _TABLE:
-        return _TABLE[metric_key]
-    if _WILDCARD is not None:
-        return _WILDCARD
-    return {"article": "{metric_key}", "type": "self-service", "platform": "shared"}
+_TABLE = _load_escalation_table()
 
 
 def _detect_platform(device: str) -> str:
     """Infer platform from device name. Defaults to mac."""
     d = device.lower()
-    if "hp" in d or "windows" in d:
+    if "hp" in d or "windows" in d or "elitebook" in d or "thinkpad" in d:
         return "windows"
     return "mac"
 
@@ -76,18 +59,8 @@ def get_article(metric_key: str, device: str = "") -> str:
     Pass device name so platform-specific articles (mac vs windows) are resolved.
     Returns a fallback string if no article file is found.
     """
-    entry = _get_routing_entry(metric_key)
-    article_name = entry["article"]
-    platform_flag = entry.get("platform", "shared")
-
-    if article_name == "{metric_key}":
-        article_name = metric_key
-
-    if platform_flag == "shared":
-        path = ARTICLES_DIR / f"{article_name}.md"
-    else:
-        plat = _detect_platform(device)
-        path = ARTICLES_DIR / plat / f"{metric_key}.md"
+    plat = _detect_platform(device)
+    path = ARTICLES_DIR / f"{plat}_{metric_key}.md"
 
     if not path.exists():
         return (
@@ -98,9 +71,20 @@ def get_article(metric_key: str, device: str = "") -> str:
     return _md_to_mrkdwn(raw)
 
 
+def get_canvas_url(metric_key: str) -> Optional[str]:
+    """Return the Slack Canvas URL for a metric, or None if not configured."""
+    entry = _TABLE.get(metric_key)
+    if entry is None:
+        return None
+    return entry.get("canvas_url")
+
+
 def is_replacement(metric_key: str) -> bool:
-    """Return True if this root cause requires hardware replacement."""
-    return _get_routing_entry(metric_key).get("type") == "replacement"
+    """Return True if this metric requires hardware replacement (not self-serviceable)."""
+    entry = _TABLE.get(metric_key)
+    if entry is None:
+        return False
+    return entry.get("type") == "replacement"
 
 
 def _md_to_mrkdwn(text: str) -> str:
@@ -119,24 +103,17 @@ def _md_to_mrkdwn(text: str) -> str:
     output = []
 
     for line in lines:
-        # Headings: # H1, ## H2, ### H3
         heading_match = re.match(r"^#{1,3}\s+(.*)", line)
         if heading_match:
             output.append(f"*{heading_match.group(1).strip()}*")
             continue
 
-        # Horizontal rules
         if re.match(r"^-{3,}$", line.strip()):
             output.append("")
             continue
 
-        # Unordered list items: - item → • item
         line = re.sub(r"^(\s*)-\s+", r"\g<1>• ", line)
-
-        # Italic first: *text* (single markers only — lookahead/behind excludes **bold**)
         line = re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"_\1_", line)
-
-        # Bold: **text** or __text__ (runs after italic so *bold* isn't re-matched)
         line = re.sub(r"\*\*(.+?)\*\*", r"*\1*", line)
         line = re.sub(r"__(.+?)__", r"*\1*", line)
 
