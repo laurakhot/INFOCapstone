@@ -8,7 +8,7 @@ import shutil
 # -------------------------------------------------------
 BUCKET_NAME = "your-s3-bucket-name"
 S3_PREFIX = "random-forest-serverless"
-REGION = "us-east-1"
+REGION = "us-east-2"
 # -------------------------------------------------------
 
 def package_model():

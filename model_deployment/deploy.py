@@ -9,8 +9,8 @@ from sagemaker.serverless import ServerlessInferenceConfig
 S3_MODEL_URI = "s3://your-s3-bucket-name/random-forest-serverless/model.tar.gz"
 SAGEMAKER_ROLE = "arn:aws:iam::YOUR_ACCOUNT_ID:role/SageMakerExecutionRole"
 ENDPOINT_NAME = "random-forest-serverless-endpoint"
-REGION = "us-east-1"
-MEMORY_SIZE_MB = 2048
+REGION = "us-east-2"
+MEMORY_SIZE_MB = 4096
 MAX_CONCURRENCY = 5
 # -------------------------------------------------------
 
