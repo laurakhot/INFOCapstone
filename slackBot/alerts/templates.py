@@ -54,7 +54,7 @@ def build_alert_blocks(
         f"Our system detected some risk factors that may cause your laptop to crash. 😵 "
         f"Here are guides based on what we found on your *{device}*:\n\n"
         f"{bullet_text}\n\n"
-        f"After you resolved these risk factors, click \"re-run diagnosis\" below."
+        f"Once you have followed the steps in the canvas, try re-running to see if your issue is fixed."
     )
 
     return [

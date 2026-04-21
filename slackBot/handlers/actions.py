@@ -16,13 +16,15 @@ import re
 
 from alerts.templates import (
     build_article_blocks,
+    build_still_at_risk_blocks,
     build_snoozed_blocks,
     build_opted_out_blocks,
     build_opt_out_feedback_blocks,
     METRIC_LABELS,
+    METRIC_BUTTON_LABELS,
 )
 from backend_client import run_diagnosis
-from rag.articles import get_article, is_replacement
+from rag.articles import get_article, get_canvas_url, is_replacement
 
 OPT_OUTS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "opt_outs.json")
 
@@ -49,7 +51,7 @@ def _get_user_id(body: dict) -> str:
 
 
 def _run_diagnosis_and_reply(body: dict, client, channel_id: str, thread_ts: str, username: str) -> None:
-    """Shared logic for re-run diagnosis: post loading msg, call backend, update in-place."""
+    """Shared logic for re-run diagnosis: post loading msg, call backend, reply in thread."""
     loading = client.chat_postMessage(
         channel=channel_id,
         text="Running a fresh check on your laptop... ⏳",
@@ -57,19 +59,32 @@ def _run_diagnosis_and_reply(body: dict, client, channel_id: str, thread_ts: str
     )
     loading_ts = loading["ts"]
 
-    run_diagnosis(username)
+    result = run_diagnosis(username)
+    remaining_features = list(result.keys()) if result else []
 
-    client.chat_update(
-        channel=channel_id,
-        ts=loading_ts,
-        text=(
-            "Your laptop is all clear! No risk factors detected. 🎉\n\n"
-            "Great job taking action — you've kept your laptop running smoothly. "
-            "Feel free to message me here if anything else comes up!"
-        ),
-    )
-
-    _update_original_alert(body, client, resolved=True)
+    if remaining_features:
+        canvas_entries = [
+            (get_canvas_url(k), METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k)))
+            for k in remaining_features
+        ]
+        still_at_risk_blocks = build_still_at_risk_blocks(remaining_features, canvas_entries)
+        client.chat_update(
+            channel=channel_id,
+            ts=loading_ts,
+            text="I'm still seeing some risk factors on your laptop.",
+            blocks=still_at_risk_blocks,
+        )
+    else:
+        client.chat_update(
+            channel=channel_id,
+            ts=loading_ts,
+            text=(
+                "Your laptop is all clear! No risk factors detected. 🎉\n\n"
+                "Great job taking action — you've kept your laptop running smoothly. "
+                "Feel free to message me here if anything else comes up!"
+            ),
+        )
+        _update_original_alert(body, client, resolved=True)
 
 
 def register_action_handlers(app) -> None:
