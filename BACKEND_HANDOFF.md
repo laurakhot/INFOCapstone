@@ -185,8 +185,8 @@ The alert DM is a single Block Kit section block + one actions block:
 │  • Reduce Memory Usage          ← mrkdwn link → Canvas URL  │
 │  • Restart your Laptop          ← mrkdwn link → Canvas URL  │
 │                                                              │
-│  After you resolved these risk factors, click               │
-│  "re-run diagnosis" below.                                   │
+│  Once you have followed the steps in the canvas, try        │
+│  re-running to see if your issue is fixed.                   │
 ├──────────────────────────────────────────────────────────────┤
 │  [Re-run diagnosis]  [Snooze for an hour]  [Don't remind me] │
 └──────────────────────────────────────────────────────────────┘
@@ -279,10 +279,14 @@ All handlers call `ack()` first (required by Slack Bolt within 3 seconds).
 **Re-run diagnosis flow:**
 ```
 User taps "Re-run diagnosis"
-  → bot posts "Running a fresh check... ⏳" in thread
+  → bot posts "Running a fresh check on your laptop... ⏳" in thread
   → calls run_diagnosis(username) [currently stubbed → returns {}]
-  → updates loading message with "all clear 🎉"
-  → strips action buttons from original alert, appends "✅ Resolved" footer
+  → if remaining features returned:
+      → updates loading message with still-at-risk blocks
+          (canvas links for each remaining metric + "Re-run diagnosis" button)
+  → if no remaining features (all clear):
+      → updates loading message with "Your laptop is all clear! 🎉" text
+      → strips action buttons from original alert, appends "✅ Resolved" footer
 ```
 
 ---
