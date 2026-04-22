@@ -71,9 +71,10 @@ def _run_diagnosis_and_reply(body: dict, client, channel_id: str, thread_ts: str
         client.chat_update(
             channel=channel_id,
             ts=loading_ts,
-            text="I'm still seeing some risk factors on your laptop.",
+            text="Your laptop is still at risk.",
             blocks=still_at_risk_blocks,
         )
+        # Leave the original alert and its buttons untouched so user can re-run again
     else:
         client.chat_update(
             channel=channel_id,

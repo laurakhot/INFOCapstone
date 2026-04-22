@@ -111,23 +111,10 @@ def build_still_at_risk_blocks(remaining: dict, canvas_entries: list) -> list:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"I'm still seeing some risk factors. "
-                    f"Here are the guides to work through:\n\n{bullet_text}\n\n"
-                    f"Click \"re-run diagnosis\" again once you've gone through them."
+                    f"Your laptop is still at risk. Please follow these guides:\n\n{bullet_text}\n\n"
+                    f"When you're done, hit *re-run diagnosis* again."
                 ),
             },
-        },
-        {
-            "type": "actions",
-            "block_id": "alert_actions",
-            "elements": [
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Re-run diagnosis"},
-                    "action_id": "rerun_diagnosis",
-                    "style": "primary",
-                },
-            ],
         },
     ]
 

@@ -33,7 +33,8 @@ def run_diagnosis(username: str) -> dict:
     # Remove this block and uncomment the real call below when the backend
     # exposes a /diagnose endpoint.
     if not backend_url or backend_url == "http://localhost:8000":
-        return {}
+        # TEST STUB: simulates still-at-risk response — swap back to {} to test all-clear
+        return {"avg_memory_utilization": 0.87, "uptime_days": 0.72}
     # ─────────────────────────────────────────────────────────────────────
 
     # ── Real backend call (uncomment when ready) ──────────────────────────
