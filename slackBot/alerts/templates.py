@@ -15,46 +15,105 @@ METRIC_LABELS = {
 
 METRIC_BUTTON_LABELS = {
     "avg_processor_time":     "Check Processor Performance",
-    "max_cpu_usage":          "Optimize CPU Usage",
-    "avg_memory_utilization": "Reduce Memory Usage",
+    "max_cpu_usage":          "Reduce CPU Load (3 min)",
+    "avg_memory_utilization": "Reduce Memory Usage (3 min)",
     "avg_battery_health":     "Check Battery Health",
-    "uptime_days":            "Restart your Laptop",
+    "uptime_days":            "Restart your Laptop (2 min)",
     "p90_cpu_temp":           "Cool Down your Laptop",
 }
+
+# Healthy threshold per metric. Flagged when value exceeds threshold
+# (or falls below, for avg_battery_health).
+METRIC_THRESHOLDS = {
+    "avg_memory_utilization": 78.1,
+    "uptime_days":            27,
+    "avg_processor_time":     67.6,
+    "max_cpu_usage":          90.2,
+    "avg_battery_health":     93.7,  # flagged when BELOW this
+    "p90_cpu_temp":           88.1,
+}
+
+# Metrics where a lower value is worse (threshold is a floor, not a ceiling).
+METRIC_LOWER_IS_WORSE = {"avg_battery_health"}
+
+# Format-string templates. Placeholders: {value}, {threshold}, {delta}.
+# Rendered with actual telemetry values when available; used as static text otherwise.
+METRIC_IMPACT_COPY = {
+    "avg_memory_utilization": "_Used {value}% of memory — {delta}% above the safe limit._",
+    "max_cpu_usage":          "_CPU hit {value}% — {delta}% above the safe threshold._",
+    "uptime_days":            "_No restart in {value} days — {delta} days over the recommended limit._",
+    "p90_cpu_temp":           "_Running at {value}°C — {delta}°C above the safe limit._",
+    "avg_battery_health":     "_Battery at {value}% health — {delta}% below the recommended level._",
+    "avg_processor_time":     "_Processor time at {value}% — {delta}% above the threshold._",
+}
+
+
+def _fmt_value(value: float, metric_key: str) -> str:
+    if metric_key == "uptime_days":
+        return str(int(round(value)))
+    if metric_key == "p90_cpu_temp":
+        return str(round(value, 1))
+    return str(int(round(value)))
+
+
+def _format_canvas_items(canvas_entries: list, metric_values: dict = None) -> str:
+    """Return a numbered mrkdwn list from (canvas_url, label, metric_key) tuples.
+
+    Interpolates {value}, {threshold}, {delta} from metric_values when available.
+    """
+    items = []
+    for i, entry in enumerate(canvas_entries, start=1):
+        url, label, metric_key = entry if len(entry) == 3 else (*entry, "")
+        link = f"<{url}|{label}>" if url else label
+        template = METRIC_IMPACT_COPY.get(metric_key, "")
+
+        impact = ""
+        if template:
+            raw = (metric_values or {}).get(metric_key)
+            threshold = METRIC_THRESHOLDS.get(metric_key)
+            if raw is not None and threshold is not None:
+                delta = threshold - raw if metric_key in METRIC_LOWER_IS_WORSE else raw - threshold
+                try:
+                    impact = template.format(
+                        value=_fmt_value(raw, metric_key),
+                        threshold=_fmt_value(threshold, metric_key),
+                        delta=_fmt_value(abs(delta), metric_key),
+                    )
+                except KeyError:
+                    impact = template
+            else:
+                impact = template
+
+        if impact:
+            items.append(f"{i}. {link}\n{impact}")
+        else:
+            items.append(f"{i}. {link}")
+    return "\n\n".join(items)
 
 
 def build_alert_blocks(
     first_name: str,
     device: str,
-    canvas_entries: list,  # list of (canvas_url: Optional[str], label: str)
+    canvas_entries: list,   # list of (canvas_url: Optional[str], label: str, metric_key: str)
     has_replacement: bool = False,
+    metric_values: dict = None,
 ) -> list:
     """
     Build Block Kit blocks for the initial alert DM.
 
-    canvas_entries: list of (canvas_url, label) tuples for each flagged metric.
-    Canvas URLs are included as mrkdwn bullet links; Slack auto-unfurls them as
-    Canvas cards below the message.
+    canvas_entries: list of (canvas_url, label, metric_key) tuples for each flagged metric.
+    metric_values: dict of {metric_key: raw_telemetry_value} for threshold interpolation.
     """
     if not canvas_entries:
         return []
 
-    # Build bullet lines: linked if URL available, plain text fallback
-    bullets = []
-    for url, label in canvas_entries:
-        if url:
-            bullets.append(f"• <{url}|{label}>")
-        else:
-            bullets.append(f"• {label}")
-
-    bullet_text = "\n".join(bullets)
+    items_text = _format_canvas_items(canvas_entries, metric_values)
 
     body = (
         f"Hey {first_name} 👋\n\n"
-        f"Our system detected some risk factors that may cause your laptop to crash. 😵 "
-        f"Here are guides based on what we found on your *{device}*:\n\n"
-        f"{bullet_text}\n\n"
-        f"Once you have followed the steps in the canvas, try re-running to see if your issue is fixed."
+        f"We noticed a few things on your *{device}* that could cause problems if left unaddressed:\n\n"
+        f"{items_text}\n\n"
+        f"Once you've followed the steps in the canvas, re-run our diagnosis to see if the risk factors are addressed."
     )
 
     return [
@@ -74,7 +133,7 @@ def build_alert_blocks(
                 },
                 {
                     "type": "button",
-                    "text": {"type": "plain_text", "text": "Snooze for an hour"},
+                    "text": {"type": "plain_text", "text": "Snooze till tomorrow"},
                     "action_id": "snooze",
                 },
                 {
@@ -87,23 +146,17 @@ def build_alert_blocks(
     ]
 
 
-def build_still_at_risk_blocks(remaining: dict, canvas_entries: list) -> list:
+def build_still_at_risk_blocks(remaining: dict, canvas_entries: list, metric_values: dict = None) -> list:
     """
     Follow-up shown after re-diagnosis when risk factors remain.
 
-    canvas_entries: list of (canvas_url, label) for remaining metrics.
+    canvas_entries: list of (canvas_url, label, metric_key) for remaining metrics.
+    metric_values: dict of {metric_key: raw_telemetry_value} for threshold interpolation.
     """
     if not canvas_entries:
         return []
 
-    bullets = []
-    for url, label in canvas_entries:
-        if url:
-            bullets.append(f"• <{url}|{label}>")
-        else:
-            bullets.append(f"• {label}")
-
-    bullet_text = "\n".join(bullets)
+    items_text = _format_canvas_items(canvas_entries, metric_values)
 
     return [
         {
@@ -111,7 +164,7 @@ def build_still_at_risk_blocks(remaining: dict, canvas_entries: list) -> list:
             "text": {
                 "type": "mrkdwn",
                 "text": (
-                    f"Your laptop is still at risk. Please follow these guides:\n\n{bullet_text}\n\n"
+                    f"Your laptop is still at risk. Please follow these guides:\n\n{items_text}\n\n"
                     f"When you're done, hit *re-run diagnosis* again."
                 ),
             },
@@ -162,27 +215,13 @@ def build_article_blocks(article_mrkdwn: str, metric_key: str, is_replacement: b
     ]
 
 
-def build_acknowledged_blocks(risk_labels: list) -> list:
-    """Replacement for the original alert after acknowledge."""
-    labels_text = " · ".join(risk_labels)
-    return [
-        {
-            "type": "section",
-            "text": {
-                "type": "mrkdwn",
-                "text": f"✅ *Issue resolved*\n_{labels_text}_",
-            },
-        }
-    ]
-
-
 def build_snoozed_blocks() -> list:
     return [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "⏰ *Snoozed* — I'll check back with you in an hour. Take care 😊",
+                "text": "⏰ *Snoozed* — I'll check back with you tomorrow. Take care 😊",
             },
         }
     ]
@@ -195,6 +234,18 @@ def build_opted_out_blocks() -> list:
             "text": {
                 "type": "mrkdwn",
                 "text": "🔕 *You've unsubscribed from alerts like this.*",
+            },
+        }
+    ]
+
+
+def build_opt_out_thanks_blocks() -> list:
+    return [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "Thanks for letting us know — that really helps us improve! 💙",
             },
         }
     ]

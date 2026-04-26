@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_rerun_counts: dict[str, int] = {}
+
 
 def run_diagnosis(username: str) -> dict:
     """
@@ -30,11 +32,11 @@ def run_diagnosis(username: str) -> dict:
     backend_url = os.environ.get("BACKEND_URL", "").rstrip("/")
 
     # ── MVP stub ─────────────────────────────────────────────────────────
-    # Remove this block and uncomment the real call below when the backend
-    # exposes a /diagnose endpoint.
     if not backend_url or backend_url == "http://localhost:8000":
-        # TEST STUB: simulates still-at-risk response — swap back to {} to test all-clear
-        return {"avg_memory_utilization": 0.87, "uptime_days": 0.72}
+        _rerun_counts[username] = _rerun_counts.get(username, 0) + 1
+        if _rerun_counts[username] == 1:
+            return {"avg_memory_utilization": 80, "uptime_days": 44, "max_cpu_usage": 96}
+        return {}
     # ─────────────────────────────────────────────────────────────────────
 
     # ── Real backend call (uncomment when ready) ──────────────────────────

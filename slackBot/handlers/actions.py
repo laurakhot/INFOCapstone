@@ -20,6 +20,7 @@ from alerts.templates import (
     build_snoozed_blocks,
     build_opted_out_blocks,
     build_opt_out_feedback_blocks,
+    build_opt_out_thanks_blocks,
     METRIC_LABELS,
     METRIC_BUTTON_LABELS,
 )
@@ -64,10 +65,10 @@ def _run_diagnosis_and_reply(body: dict, client, channel_id: str, thread_ts: str
 
     if remaining_features:
         canvas_entries = [
-            (get_canvas_url(k), METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k)))
+            (get_canvas_url(k), METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k)), k)
             for k in remaining_features
         ]
-        still_at_risk_blocks = build_still_at_risk_blocks(remaining_features, canvas_entries)
+        still_at_risk_blocks = build_still_at_risk_blocks(remaining_features, canvas_entries, metric_values=result)
         client.chat_update(
             channel=channel_id,
             ts=loading_ts,
@@ -139,7 +140,7 @@ def register_action_handlers(app) -> None:
         client.chat_update(
             channel=channel_id,
             ts=message_ts,
-            text="Snoozed — I'll check back with you in an hour.",
+            text="Snoozed — I'll check back with you tomorrow. Take care 😊",
             blocks=build_snoozed_blocks(),
         )
 
@@ -180,15 +181,7 @@ def register_action_handlers(app) -> None:
             channel=channel_id,
             ts=message_ts,
             text="Thanks for letting us know!",
-            blocks=[
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "Thanks for letting us know — that really helps us improve! 💙",
-                    },
-                }
-            ],
+            blocks=build_opt_out_thanks_blocks(),
         )
 
 

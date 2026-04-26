@@ -90,14 +90,22 @@ def send_alert(username: str, device: str, features: list) -> None:
     dm_resp = client.conversations_open(users=[user_id])
     channel_id = dm_resp["channel"]["id"]
 
-    has_replacement = any(is_replacement(k) for k in features)
+    # features may be a dict {metric_key: raw_value} or a plain list of keys
+    if isinstance(features, dict):
+        metric_values = features
+        feature_keys = list(features.keys())
+    else:
+        metric_values = {}
+        feature_keys = features
+
+    has_replacement = any(is_replacement(k) for k in feature_keys)
 
     canvas_entries = [
-        (get_canvas_url(k), METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k)))
-        for k in features
+        (get_canvas_url(k), METRIC_BUTTON_LABELS.get(k, METRIC_LABELS.get(k, k)), k)
+        for k in feature_keys
     ]
 
-    blocks = build_alert_blocks(first_name, device, canvas_entries, has_replacement=has_replacement)
+    blocks = build_alert_blocks(first_name, device, canvas_entries, has_replacement=has_replacement, metric_values=metric_values)
     if not blocks:
         print(f"[send_alert] No blocks built for {username} — skipping.")
         return
