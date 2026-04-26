@@ -36,6 +36,10 @@ METRIC_THRESHOLDS = {
 # Metrics where a lower value is worse (threshold is a floor, not a ceiling).
 METRIC_LOWER_IS_WORSE = {"avg_battery_health"}
 
+# Metrics that require hardware replacement (not self-serviceable).
+# Must stay in sync with rag/escalation_logic.md.
+METRIC_REPLACEMENT = {"avg_battery_health", "avg_processor_time"}
+
 # Format-string templates. Placeholders: {value}, {threshold}, {delta}.
 # Rendered with actual telemetry values when available; used as static text otherwise.
 METRIC_IMPACT_COPY = {
@@ -85,9 +89,9 @@ def _format_canvas_items(canvas_entries: list, metric_values: dict = None) -> st
                 impact = template
 
         if impact:
-            items.append(f"{i}. {link}\n{impact}")
+            items.append(f"{impact}\n{link}")
         else:
-            items.append(f"{i}. {link}")
+            items.append(link)
     return "\n\n".join(items)
 
 
@@ -103,9 +107,19 @@ def build_alert_blocks(
 
     canvas_entries: list of (canvas_url, label, metric_key) tuples for each flagged metric.
     metric_values: dict of {metric_key: raw_telemetry_value} for threshold interpolation.
+
+    If any flagged metric is a replacement (not self-serviceable), the action
+    buttons switch to Join Queue / Schedule an Appointment / Snooze.
+    Otherwise the standard self-service buttons are shown.
+
+    The opt-out button is always per-metric: one button per flagged metric so
+    users can mute individual alerts without silencing everything.
     """
     if not canvas_entries:
         return []
+
+    metric_keys = [entry[2] if len(entry) == 3 else "" for entry in canvas_entries]
+    is_replacement_alert = any(k in METRIC_REPLACEMENT for k in metric_keys)
 
     items_text = _format_canvas_items(canvas_entries, metric_values)
 
@@ -116,12 +130,39 @@ def build_alert_blocks(
         f"Once you've followed the steps in the canvas, re-run our diagnosis to see if the risk factors are addressed."
     )
 
-    return [
+    blocks: list = [
         {
             "type": "section",
             "text": {"type": "mrkdwn", "text": body},
         },
-        {
+    ]
+
+    # ── Primary action buttons ────────────────────────────────────────────
+    if is_replacement_alert:
+        blocks.append({
+            "type": "actions",
+            "block_id": "alert_actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Join queue"},
+                    "action_id": "Join_queue",
+                    "style": "primary",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Schedule an appointment"},
+                    "action_id": "Schedule_appointment",
+                },
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Snooze till tomorrow"},
+                    "action_id": "Snooze",
+                },
+            ],
+        })
+    else:
+        blocks.append({
             "type": "actions",
             "block_id": "alert_actions",
             "elements": [
@@ -136,14 +177,30 @@ def build_alert_blocks(
                     "text": {"type": "plain_text", "text": "Snooze till tomorrow"},
                     "action_id": "snooze",
                 },
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": "Don't remind me again"},
-                    "action_id": "opt_out",
-                },
             ],
-        },
-    ]
+        })
+
+    # ── Per-metric opt-out buttons ────────────────────────────────────────
+    opt_out_elements = []
+    for mk in metric_keys:
+        if not mk:
+            continue
+        label = METRIC_LABELS.get(mk, mk)
+        opt_out_elements.append({
+            "type": "button",
+            "text": {"type": "plain_text", "text": f"Don't remind me about {label}"},
+            "action_id": f"opt_out__{mk}",
+            "value": mk,
+        })
+
+    if opt_out_elements:
+        blocks.append({
+            "type": "actions",
+            "block_id": "opt_out_actions",
+            "elements": opt_out_elements,
+        })
+
+    return blocks
 
 
 def build_still_at_risk_blocks(remaining: dict, canvas_entries: list, metric_values: dict = None) -> list:
@@ -227,13 +284,14 @@ def build_snoozed_blocks() -> list:
     ]
 
 
-def build_opted_out_blocks() -> list:
+def build_opted_out_blocks(metric_key: str = "") -> list:
+    label = METRIC_LABELS.get(metric_key, "this issue")
     return [
         {
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "🔕 *You've unsubscribed from alerts like this.*",
+                "text": f"🔕 *Got it — you won't receive alerts about {label} anymore.*",
             },
         }
     ]

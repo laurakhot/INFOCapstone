@@ -6,7 +6,9 @@ Action IDs handled here:
   done_selfservice__{metric_key}     — user says they've fixed a self-serviceable issue
   done_replacement__{metric_key}     — user acknowledges a replacement-bound issue
   snooze                             — user snoozes the alert
-  opt_out                            — user wants to stop receiving alerts
+  join_queue                         — user joins the IT replacement queue
+  schedule_appointment               — user wants to schedule an IT appointment
+  opt_out__{metric_key}              — user opts out of alerts for a specific metric
   opt_out_reason__{reason}           — user provides optional opt-out feedback
 """
 
@@ -144,24 +146,62 @@ def register_action_handlers(app) -> None:
             blocks=build_snoozed_blocks(),
         )
 
-    # ── Opt out ────────────────────────────────────────────────────────────
-    @app.action("opt_out")
-    def handle_opt_out(ack, body, client):
+    # ── Opt out (per-metric) ───────────────────────────────────────────────
+    @app.action(re.compile(r"^opt_out__(.+)$"))
+    def handle_opt_out(ack, body, client, action):
+        ack()
+        metric_key = action["action_id"].replace("opt_out__", "")
+        username = _get_username(body)
+        channel_id = body["channel"]["id"]
+        message_ts = body["message"]["ts"]
+
+        # Store per-metric opt-out
+        opt_outs = _load_opt_outs()
+        user_entry = opt_outs.get(username, {})
+        if isinstance(user_entry, str):
+            # Migrate legacy format (single string) to per-metric dict
+            user_entry = {}
+        user_entry[metric_key] = True
+        opt_outs[username] = user_entry
+        _save_opt_outs(opt_outs)
+
+        client.chat_postMessage(
+            channel=channel_id,
+            text=f"You've opted out of {METRIC_LABELS.get(metric_key, metric_key)} alerts.",
+            blocks=build_opted_out_blocks(metric_key),
+        )
+
+    # ── Join queue (replacement flow) ──────────────────────────────────────
+    @app.action("join_queue")
+    def handle_join_queue(ack, body, client):
         ack()
         channel_id = body["channel"]["id"]
         message_ts = body["message"]["ts"]
 
-        client.chat_update(
+        client.chat_postMessage(
             channel=channel_id,
-            ts=message_ts,
-            text="You've unsubscribed from alerts like this.",
-            blocks=build_opted_out_blocks(),
+            text=(
+                "🎟️ You've been added to the IT replacement queue.\n\n"
+                "An IT Support Engineer will reach out to you soon. "
+                "In the meantime, please back up any important files. "
+                "Message me here if you need help with that!"
+            ),
         )
+
+    # ── Schedule an appointment (replacement flow) ─────────────────────────
+    @app.action("schedule_appointment")
+    def handle_schedule_appointment(ack, body, client):
+        ack()
+        channel_id = body["channel"]["id"]
 
         client.chat_postMessage(
             channel=channel_id,
-            text="Got it. You've unsubscribed from alerts like this.",
-            blocks=build_opt_out_feedback_blocks(),
+            text=(
+                "📅 To schedule an appointment with IT, visit your IT support portal "
+                "or reach out to your ITSE directly.\n\n"
+                "Mention that your device has been flagged for replacement — "
+                "they'll have your diagnostic info ready."
+            ),
         )
 
     # ── Opt-out feedback ───────────────────────────────────────────────────
