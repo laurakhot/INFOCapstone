@@ -39,12 +39,12 @@ METRIC_LOWER_IS_WORSE = {"avg_battery_health"}
 # Format-string templates. Placeholders: {value}, {threshold}, {delta}.
 # Rendered with actual telemetry values when available; used as static text otherwise.
 METRIC_IMPACT_COPY = {
-    "avg_memory_utilization": "_Used {value}% of memory — {delta}% above the safe limit._",
-    "max_cpu_usage":          "_CPU hit {value}% — {delta}% above the safe threshold._",
-    "uptime_days":            "_No restart in {value} days — {delta} days over the recommended limit._",
-    "p90_cpu_temp":           "_Running at {value}°C — {delta}°C above the safe limit._",
-    "avg_battery_health":     "_Battery at {value}% health — {delta}% below the recommended level._",
-    "avg_processor_time":     "_Processor time at {value}% — {delta}% above the threshold._",
+    "avg_memory_utilization": "_Used {value}% of memory — your device is {delta}% over the recommended threshold._",
+    "uptime_days":            "_No restart in {value} days — your device is {delta} days over the recommended threshold._",
+    "p90_cpu_temp":           "_CPU temperature has hit {value}°F — your device is {delta} degrees over the recommended threshold._",
+    "max_cpu_usage":          "_Your CPU is working {value}% of the time — your device is {delta}% over the recommended threshold._",
+    "avg_processor_time":     "_Your CPU is taking around {value} ns to process tasks — your device is {delta} ns over the recommended threshold._",
+    "avg_battery_health":     "_Your battery has lived {value}% of its service life — your device is {delta}% over the recommended threshold._",
 }
 
 
