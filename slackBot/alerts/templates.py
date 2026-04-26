@@ -180,26 +180,6 @@ def build_alert_blocks(
             ],
         })
 
-    # ── Per-metric opt-out buttons ────────────────────────────────────────
-    opt_out_elements = []
-    for mk in metric_keys:
-        if not mk:
-            continue
-        label = METRIC_LABELS.get(mk, mk)
-        opt_out_elements.append({
-            "type": "button",
-            "text": {"type": "plain_text", "text": f"Don't remind me about {label}"},
-            "action_id": f"opt_out__{mk}",
-            "value": mk,
-        })
-
-    if opt_out_elements:
-        blocks.append({
-            "type": "actions",
-            "block_id": "opt_out_actions",
-            "elements": opt_out_elements,
-        })
-
     return blocks
 
 
