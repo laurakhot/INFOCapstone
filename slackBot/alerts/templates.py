@@ -42,13 +42,34 @@ METRIC_REPLACEMENT = {"avg_battery_health", "avg_processor_time"}
 
 # Format-string templates. Placeholders: {value}, {threshold}, {delta}.
 # Rendered with actual telemetry values when available; used as static text otherwise.
+# Two-part templates for blockquote rendering.
+# "headline" is bold, first line.  "delta" is the second line.
+# Placeholders: {value}, {threshold}, {delta}.
 METRIC_IMPACT_COPY = {
-    "avg_memory_utilization": "_Used {value}% of memory — your device is {delta}% over the recommended threshold._",
-    "uptime_days":            "_No restart in {value} days — your device is {delta} days over the recommended threshold._",
-    "p90_cpu_temp":           "_CPU temperature has hit {value}°F — your device is {delta} degrees over the recommended threshold._",
-    "max_cpu_usage":          "_Your CPU is working {value}% of the time — your device is {delta}% over the recommended threshold._",
-    "avg_processor_time":     "_Your CPU is taking around {value} ns to process tasks — your device is {delta} ns over the recommended threshold._",
-    "avg_battery_health":     "_Your battery has lived {value}% of its service life — your device is {delta}% over the recommended threshold._",
+    "avg_memory_utilization": {
+        "headline": "Memory at {value}%",
+        "delta":    "{delta}% over the recommended threshold",
+    },
+    "uptime_days": {
+        "headline": "No restart in {value} days",
+        "delta":    "{delta} days over the recommended threshold",
+    },
+    "p90_cpu_temp": {
+        "headline": "CPU temperature at {value}°F",
+        "delta":    "{delta} degrees over the recommended threshold",
+    },
+    "max_cpu_usage": {
+        "headline": "CPU working {value}% of the time",
+        "delta":    "{delta}% over the recommended threshold",
+    },
+    "avg_processor_time": {
+        "headline": "CPU taking around {value} ns to process tasks",
+        "delta":    "{delta} ns over the recommended threshold",
+    },
+    "avg_battery_health": {
+        "headline": "Battery at {value}% of its service life",
+        "delta":    "{delta}% over the recommended threshold",
+    },
 }
 
 
@@ -61,37 +82,43 @@ def _fmt_value(value: float, metric_key: str) -> str:
 
 
 def _format_canvas_items(canvas_entries: list, metric_values: dict = None) -> str:
-    """Return a numbered mrkdwn list from (canvas_url, label, metric_key) tuples.
+    """Return Slack blockquote blocks from (canvas_url, label, metric_key) tuples.
 
-    Interpolates {value}, {threshold}, {delta} from metric_values when available.
+    Each item renders as:
+        > *CPU working 87% of the time*
+        > 7% over the recommended threshold
+        > <url|Reduce CPU Load (3 min)>
     """
     items = []
-    for i, entry in enumerate(canvas_entries, start=1):
+    for entry in canvas_entries:
         url, label, metric_key = entry if len(entry) == 3 else (*entry, "")
         link = f"<{url}|{label}>" if url else label
-        template = METRIC_IMPACT_COPY.get(metric_key, "")
+        copy = METRIC_IMPACT_COPY.get(metric_key)
 
-        impact = ""
-        if template:
+        if copy:
             raw = (metric_values or {}).get(metric_key)
             threshold = METRIC_THRESHOLDS.get(metric_key)
             if raw is not None and threshold is not None:
-                delta = threshold - raw if metric_key in METRIC_LOWER_IS_WORSE else raw - threshold
+                delta_val = threshold - raw if metric_key in METRIC_LOWER_IS_WORSE else raw - threshold
+                fmt = {
+                    "value": _fmt_value(raw, metric_key),
+                    "threshold": _fmt_value(threshold, metric_key),
+                    "delta": _fmt_value(abs(delta_val), metric_key),
+                }
                 try:
-                    impact = template.format(
-                        value=_fmt_value(raw, metric_key),
-                        threshold=_fmt_value(threshold, metric_key),
-                        delta=_fmt_value(abs(delta), metric_key),
-                    )
+                    headline = copy["headline"].format(**fmt)
+                    delta_line = copy["delta"].format(**fmt)
                 except KeyError:
-                    impact = template
+                    headline = copy["headline"]
+                    delta_line = copy["delta"]
             else:
-                impact = template
+                headline = copy["headline"]
+                delta_line = copy["delta"]
 
-        if impact:
-            items.append(f"{impact}\n{link}")
+            items.append(f"> *{headline}*\n> {delta_line}\n> {link}")
         else:
-            items.append(link)
+            items.append(f"> {link}")
+
     return "\n\n".join(items)
 
 
