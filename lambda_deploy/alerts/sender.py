@@ -1,42 +1,17 @@
 """
-Alert sender — called by the telemetry backend Lambda to notify users.
+Alert sender — called directly by lambda_function.py after check_thresholds() identifies problematic users.
 
-Lambda payload format:
-    {
-        "problematic_users": [
-            {"username": "jdoe", "device": "HP EliteBook 8", "features": ["avg_memory_utilization", "uptime_days"]},
-            ...
-        ]
-    }
+send_alert() is called once per user with the username, device, and triggered features from the CSV row.
+It looks up the user in Slack, opens a DM, and sends a Block Kit message with canvas links for each flagged metric.
 
-Usage (as library):
-    from alerts.sender import handle_lambda_payload
-    handle_lambda_payload(payload)
-
-Usage (as CLI, single user):
-    python alerts/sender.py --user=jdoe --device="HP EliteBook 8" --features='["avg_memory_utilization","uptime_days"]'
+Requires SLACK_BOT_TOKEN to be set as a Lambda environment variable.
 """
-
-import json
 import os
 
-from dotenv import load_dotenv
 from slack_sdk import WebClient
 
 from alerts.templates import build_alert_blocks, METRIC_LABELS, METRIC_BUTTON_LABELS
 from rag.articles import get_canvas_url, is_replacement
-
-load_dotenv()
-
-OPT_OUTS_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "opt_outs.json")
-
-
-def _load_opt_outs() -> dict:
-    try:
-        with open(OPT_OUTS_PATH) as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
 
 
 def _get_user(client: WebClient, username: str) -> tuple:
@@ -79,15 +54,10 @@ def send_alert(username: str, device: str, features: list) -> None:
     """
     Send a proactive laptop health alert DM to the user.
 
-    username: work alias (same as Slack username)
+    username: work alias, Slack display name, or member ID (U...)
     device:   device identifier, e.g. "HP EliteBook 8"
-    features: list of flagged metric keys, e.g. ["avg_memory_utilization", "uptime_days"]
+    features: dict of {metric_key: raw_value} or list of metric keys
     """
-    opt_outs = _load_opt_outs()
-    if username in opt_outs:
-        print(f"[send_alert] {username} has opted out — skipping alert.")
-        return
-
     if not features:
         print(f"[send_alert] No features flagged for {username} — skipping.")
         return
@@ -129,39 +99,3 @@ def send_alert(username: str, device: str, features: list) -> None:
         unfurl_links=True,
     )
     print(f"[send_alert] Alert sent to {username} ({user_id}) for device {device}.")
-
-
-def handle_lambda_payload(payload: dict) -> None:
-    """
-    Process the full Lambda JSON payload and send alerts to each flagged user.
-
-    Expected payload shape:
-        {"problematic_users": [{"username": str, "device": str, "features": [str, ...]}, ...]}
-    """
-    for user in payload.get("problematic_users", []):
-        try:
-            send_alert(
-                username=user["username"],
-                device=user["device"],
-                features=user.get("features", []),
-            )
-        except Exception as e:
-            print(f"[handle_lambda_payload] Failed for {user.get('username')}: {e}")
-
-
-# ── CLI entry point ──────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Send a laptop health alert via Slack DM.")
-    parser.add_argument("--user", required=True, help="Work alias / Slack username")
-    parser.add_argument("--device", required=True, help="Device identifier, e.g. 'HP EliteBook 8'")
-    parser.add_argument(
-        "--features",
-        required=True,
-        help='JSON list of flagged metric keys, e.g. \'["avg_memory_utilization","uptime_days"]\'',
-    )
-    args = parser.parse_args()
-
-    send_alert(username=args.user, device=args.device, features=json.loads(args.features))

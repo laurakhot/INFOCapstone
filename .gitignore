@@ -3,3 +3,5 @@ node_modules/
 .env
 dist/
 .ipynb_checkpoints/
+lambda_deploy.zip
+test_telemetry.csv
